@@ -1,0 +1,57 @@
+apiVersion: apps/v1 # for versions before 1.9.0 use apps/v1beta2
+kind: StatefulSet
+metadata:
+  labels:
+    app: jira
+  name: jira
+spec:
+  #https://kubernetes.io/docs/concepts/workloads/controllers/statefulset/
+  serviceName: jira
+  selector:
+    matchLabels:
+      app: jira
+  replicas: 1
+  template:
+    metadata:
+      labels:
+        app: jira
+      name: jira
+    spec:
+      initContainers:
+      - name: install
+        image: busybox
+        volumeMounts:
+        - name: config-volume
+          mountPath: /constant
+        - name: jira-volume
+          mountPath: /jira
+        command:
+        - sh
+        - -c
+        - echo hi; ls -la /constant/*.xml; cp /constant/*.xml /jira/; echo copied?; ls -la /jira/; echo bye
+      containers:
+      - name: jira
+        image: cptactionhank/atlassian-jira:6.3
+        resources:
+          requests:
+            cpu: 2
+#            memory: 2Gi
+        volumeMounts:
+        - name: jira-volume
+          mountPath: /var/local/atlassian/jira
+        env:
+        - name: JAVA_TOOL_OPTIONS
+          value: -Dnon.admin.upgrade=true
+      volumes:
+      - name: config-volume
+        configMap:
+          name: jira-config
+  volumeClaimTemplates:
+  - metadata:
+      name: jira-volume
+    spec:
+      accessModes:
+      - ReadWriteOnce
+      resources:
+        requests:
+          storage: 300Gi
